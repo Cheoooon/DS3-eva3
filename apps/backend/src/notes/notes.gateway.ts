@@ -3,6 +3,7 @@ import {
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Injectable } from '@nestjs/common';
@@ -21,11 +22,13 @@ export class NotesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`Client disconnected: ${client.id}`);
   }
 
+
+  @SubscribeMessage('joinPracticeRoom')
+  joinPracticeRoom(client: Socket, practiceId: string) {
+    client.join(`practice_${practiceId}`);
+  }
   notifyNoteCreated(practiceId: string, note: any) {
     this.server.to(`practice_${practiceId}`).emit('noteCreated', note);
   }
 
-  joinPracticeRoom(client: Socket, practiceId: string) {
-    client.join(`practice_${practiceId}`);
-  }
 }
