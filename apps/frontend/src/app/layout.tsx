@@ -1,5 +1,6 @@
 import './globals.css';
 import { AuthProvider } from '../context/AuthContext';
+import Toaster from '../components/Toaster';
 import { Navbar } from '../components/Navbar';
 
 export const metadata = {
@@ -18,6 +19,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <main className="flex-1">{children}</main>
+          <Toaster />
         </AuthProvider>
       </body>
     </html>

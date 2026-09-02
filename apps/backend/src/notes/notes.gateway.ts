@@ -8,7 +8,12 @@ import {
 import { Server, Socket } from 'socket.io';
 import { Injectable } from '@nestjs/common';
 
-@WebSocketGateway({ cors: true })
+@WebSocketGateway({
+  cors: {
+    origin: '*',
+    methods: ['GET', 'POST'],
+  },
+})
 @Injectable()
 export class NotesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()

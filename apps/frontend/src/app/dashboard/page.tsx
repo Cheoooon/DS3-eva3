@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { api, Practice, User, Role, PracticeStatus, getFileUrl } from '../../lib/api';
+import { api, Practice, User, Role, PracticeStatus } from '../../lib/api';
+import { showToast } from '../../components/Toaster';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   const [practices, setPractices] = useState<Practice[]>([]);
@@ -17,11 +18,9 @@ export default function DashboardPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState<'practices' | 'users'>('practices');
 
-  // Filtros y Paginación de notas
+  // Filtros de prácticas
   const [filterStatus, setFilterStatus] = useState<PracticeStatus | 'ALL' | 'UNASSIGNED'>('ALL');
   const [filterDate, setFilterDate] = useState('');
-  const [notesToShow, setNotesToShow] = useState(5);
-  const scrollRefModal = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -44,20 +43,6 @@ export default function DashboardPage() {
 
     return matchStatus && matchDate;
   });
-
-  // Quick Bitácora Modal State
-  const [selectedPracticeForNotes, setSelectedPracticeForNotes] = useState<Practice | null>(null);
-  const [quickNoteContent, setQuickNoteContent] = useState('');
-  const [quickNoteFile, setQuickNoteFile] = useState<File | null>(null);
-  const [submittingNote, setSubmittingNote] = useState(false);
-  const quickFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Auto-scroll al final del modal al abrirlo o cambiar notas (estilo chat)
-  useEffect(() => {
-    if (selectedPracticeForNotes && scrollRefModal.current) {
-      scrollRefModal.current.scrollTop = scrollRefModal.current.scrollHeight;
-    }
-  }, [selectedPracticeForNotes, selectedPracticeForNotes?.notes?.length]);
 
   // New Practice Modal State
   const [showNewPracticeModal, setShowNewPracticeModal] = useState(false);
@@ -155,7 +140,6 @@ export default function DashboardPage() {
   const handleCreatePractice = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingPractice(true);
-    setFeedbackMsg(null);
     try {
       await api.createPractice({
         title: practiceTitle,
@@ -171,7 +155,7 @@ export default function DashboardPage() {
         supervisorContact: practiceSupervisorContact,
         studentId: (user?.role === 'ADMIN' || user?.role === 'TEACHER') ? practiceStudentId : undefined,
       });
-      setFeedbackMsg({ type: 'success', text: 'Práctica registrada exitosamente.' });
+      showToast('success', 'Práctica registrada exitosamente.');
       setShowNewPracticeModal(false);
       setPracticeTitle('');
       setPracticeDesc('');
@@ -187,10 +171,7 @@ export default function DashboardPage() {
       setPracticeStudentId('');
       await loadData();
     } catch (err: unknown) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error al registrar la práctica',
-      });
+      showToast('error', err instanceof Error ? err.message : 'Error al registrar la práctica');
     } finally {
       setCreatingPractice(false);
     }
@@ -290,35 +271,6 @@ export default function DashboardPage() {
         type: 'error',
         text: err instanceof Error ? err.message : 'Error al actualizar estado',
       });
-    }
-  };
-
-  const handleAddQuickNote = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPracticeForNotes || !quickNoteContent.trim() || selectedPracticeForNotes.status === 'FINISHED') return;
-    setSubmittingNote(true);
-    try {
-      await api.createNote({
-        practiceId: selectedPracticeForNotes.id,
-        content: quickNoteContent.trim(),
-        file: quickNoteFile || undefined,
-      });
-      setQuickNoteContent('');
-      setQuickNoteFile(null);
-      if (quickFileInputRef.current) quickFileInputRef.current.value = '';
-      await loadData();
-      const updatedPractice = await api.getPractice(selectedPracticeForNotes.id);
-      setSelectedPracticeForNotes(updatedPractice);
-      setFeedbackMsg({ type: 'success', text: 'Nota agregada.' });
-      setTimeout(() => {
-        if (scrollRefModal.current) {
-          scrollRefModal.current.scrollTop = scrollRefModal.current.scrollHeight;
-        }
-      }, 100);
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Error al agregar nota' });
-    } finally {
-      setSubmittingNote(false);
     }
   };
 
@@ -553,13 +505,13 @@ export default function DashboardPage() {
                       </Link>
 
                       <div className="flex items-center space-x-1.5">
-                        <button
-                          onClick={() => setSelectedPracticeForNotes(practice)}
-                          className="text-xs font-semibold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-2.5 py-1.5 rounded-lg shadow-sm"
-                          title="Ver y agregar notas rápidas"
+                        <Link
+                          href={`/practices/${practice.id}?tab=notes`}
+                          className="inline-flex items-center text-xs font-semibold text-gray-600 hover:text-gray-900 bg-white border border-gray-200 px-2.5 py-1.5 rounded-lg shadow-sm hover:bg-gray-50 transition"
+                          title="Ir a la bitácora de observaciones"
                         >
                           📝 ({notesCount})
-                        </button>
+                        </Link>
 
                         {(user?.role === 'ADMIN' || (user?.role === 'TEACHER' && practice.teacherId === user?.id)) && (
                           <button
@@ -813,146 +765,6 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Quick Bitácora Popup con estilo Chat */}
-      {selectedPracticeForNotes && (
-        <div className="fixed inset-0 !m-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-              <div>
-                <h3 className="text-base font-bold text-gray-900">Bitácora Rápida</h3>
-                <p className="text-xs text-gray-500">{selectedPracticeForNotes.title}</p>
-              </div>
-              <button
-                onClick={() => {
-                  setSelectedPracticeForNotes(null);
-                  setQuickNoteFile(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 font-bold p-1"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-5 overflow-y-auto flex-1 space-y-3" ref={scrollRefModal}>
-              {(() => {
-                const modalSortedNotes = [...(selectedPracticeForNotes.notes || [])].sort(
-                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-                );
-                const modalVisibleNotes = modalSortedNotes.slice(-notesToShow);
-
-                return modalSortedNotes.length === 0 ? (
-                  <div className="p-8 text-center text-gray-400 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                    No hay notas registradas todavía.
-                  </div>
-                ) : (
-                  <>
-                    {notesToShow < modalSortedNotes.length && (
-                      <button
-                        onClick={() => {
-                          const container = scrollRefModal.current;
-                          const prevHeight = container?.scrollHeight || 0;
-                          setNotesToShow((prev) => prev + 5);
-                          setTimeout(() => {
-                            if (container) {
-                              container.scrollTop = container.scrollHeight - prevHeight;
-                            }
-                          }, 0);
-                        }}
-                        className="w-full py-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 rounded-xl"
-                      >
-                        Cargar mensajes más antiguos
-                      </button>
-                    )}
-                    {modalVisibleNotes.map((note) => {
-                      const authorName = note.author
-                        ? note.author.studentProfile
-                          ? `${note.author.studentProfile.firstName} ${note.author.studentProfile.lastName}`
-                          : note.author.teacherProfile
-                          ? `${note.author.teacherProfile.firstName} ${note.author.teacherProfile.lastName}`
-                          : note.author.email
-                        : 'Sistema';
-
-                      return (
-                        <div
-                          key={note.id}
-                          className={`p-3 rounded-xl border ${
-                            note.isSystem ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200 shadow-sm'
-                          }`}
-                        >
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs font-bold text-gray-900">{authorName}</span>
-                            <span className="text-[10px] text-gray-400 font-mono">
-                              {new Date(note.createdAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-700 whitespace-pre-wrap">{note.content}</p>
-                        </div>
-                      );
-                    })}
-                  </>
-                );
-              })()}
-            </div>
-
-            {selectedPracticeForNotes.status !== 'FINISHED' && (
-              <form onSubmit={handleAddQuickNote} className="p-3 bg-gray-50 border-t border-gray-100 space-y-2">
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={quickNoteContent}
-                    onChange={(e) => setQuickNoteContent(e.target.value)}
-                    placeholder="Escribe una observación..."
-                    className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                    required
-                  />
-                  <input
-                    type="file"
-                    ref={quickFileInputRef}
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        setQuickNoteFile(e.target.files[0]);
-                      }
-                    }}
-                    className="hidden"
-                    id="quick-file-upload"
-                  />
-                  <label
-                    htmlFor="quick-file-upload"
-                    className="px-2.5 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-100 cursor-pointer shadow-sm"
-                    title="Adjuntar archivo"
-                  >
-                    📎
-                  </label>
-                  <button
-                    type="submit"
-                    disabled={submittingNote || !quickNoteContent.trim()}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition disabled:opacity-50"
-                  >
-                    {submittingNote ? '...' : 'Enviar'}
-                  </button>
-                </div>
-
-                {quickNoteFile && (
-                  <div className="flex items-center justify-between text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200">
-                    <span className="truncate">📎 {quickNoteFile.name}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickNoteFile(null);
-                        if (quickFileInputRef.current) quickFileInputRef.current.value = '';
-                      }}
-                      className="text-red-500 font-bold ml-2"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-              </form>
-            )}
           </div>
         </div>
       )}
