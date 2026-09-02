@@ -54,6 +54,7 @@ export class NotesController {
     return this.notesService.create(
       body.practiceId,
       req.user.userId,
+      req.user.role,
       body.content,
       false,
       file

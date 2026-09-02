@@ -129,6 +129,10 @@ export default function PracticeDetailPage() {
         };
       });
       setNotesToShow((prev) => prev + 1);
+      if (newNote.isSystem) {
+        loadPractice(false);
+      }
+
 
       if (newNote.authorId === user?.id || isAtBottom) {
         setTimeout(() => scrollToBottom(true), 100);
@@ -140,7 +144,7 @@ export default function PracticeDetailPage() {
     return () => {
       socket.disconnect();
     };
-  }, [id, isAtBottom, user?.id, scrollToBottom]);
+  }, [id, isAtBottom, user?.id, scrollToBottom, loadPractice]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -156,6 +160,13 @@ export default function PracticeDetailPage() {
       setTimeout(() => scrollToBottom(false), 50);
     }
   }, [activeTab, scrollToBottom]);
+  const isAuthorized = practice && (
+    user?.role === 'ADMIN' || 
+    practice.studentId === user?.id || 
+    practice.teacherId === user?.id
+  );
+
+
 
   if (authLoading || loading) {
     return (
@@ -163,6 +174,10 @@ export default function PracticeDetailPage() {
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
       </div>
     );
+  }
+  if (practice && !isAuthorized) {
+    router.push('/dashboard');
+    return null;
   }
 
   if (!practice) {
@@ -183,6 +198,8 @@ export default function PracticeDetailPage() {
   const studentFullName = practice.student?.studentProfile
     ? `${practice.student.studentProfile.firstName} ${practice.student.studentProfile.lastName}`
     : practice.student?.email || '—';
+  const isFinished = practice.status === 'FINISHED';
+
 
   const teacherFullName = practice.teacher?.teacherProfile
     ? `${practice.teacher.teacherProfile.firstName} ${practice.teacher.teacherProfile.lastName}`
@@ -191,8 +208,6 @@ export default function PracticeDetailPage() {
   const canEdit =
     user?.role === 'ADMIN' ||
     (user?.role === 'TEACHER' && practice.teacherId === user.id);
-
-  const isFinished = practice.status === 'FINISHED';
 
   const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -639,130 +654,134 @@ export default function PracticeDetailPage() {
               </div>
             </form>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-                <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
-                  <span className="text-xl">🎓</span>
-                  <h3 className="text-base font-bold text-gray-900">Datos del Estudiante</h3>
-                </div>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                  <div>
-                    <dt className="text-gray-400 font-medium">Nombre Completo</dt>
-                    <dd className="text-gray-900 font-semibold text-sm mt-0.5">{studentFullName}</dd>
+            <div className="space-y-6">
+              {/* Fila 1: Estudiante y Docente */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+                    <span className="text-xl">🎓</span>
+                    <h3 className="text-base font-bold text-gray-900">Estudiante</h3>
                   </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">N° Matrícula</dt>
-                    <dd className="text-gray-900 font-mono font-semibold mt-0.5">
-                      {practice.student?.studentProfile?.enrollmentCode || '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">Carrera</dt>
-                    <dd className="text-gray-900 font-semibold mt-0.5">
-                      {practice.student?.studentProfile?.career || '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">Teléfono de Contacto</dt>
-                    <dd className="text-gray-900 font-semibold mt-0.5">
-                      {practice.student?.studentProfile?.phone || 'No registrado'}
-                    </dd>
-                  </div>
-                  <div className="col-span-2">
-                    <dt className="text-gray-400 font-medium">Correo Electrónico</dt>
-                    <dd className="text-gray-900 font-mono mt-0.5">{practice.student?.email}</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
-                <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
-                  <span className="text-xl">🏢</span>
-                  <h3 className="text-base font-bold text-gray-900">Empresa</h3>
-                </div>
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-                  <div className="col-span-2">
-                    <dt className="text-gray-400 font-medium">Razón Social / Nombre</dt>
-                    <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                      {practice.companyName || 'No especificada'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">Teléfono</dt>
-                    <dd className="text-gray-900 font-semibold mt-0.5">{practice.companyPhone || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">Dirección</dt>
-                    <dd className="text-gray-900 font-semibold mt-0.5">{practice.companyAddress || '—'}</dd>
-                  </div>
-                  {practice.companyDetails && (
-                    <div className="col-span-2">
-                      <dt className="text-gray-400 font-medium">Detalles Relevantes</dt>
-                      <dd className="text-gray-700 mt-0.5 whitespace-pre-wrap">{practice.companyDetails}</dd>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <dt className="text-gray-400 font-medium">Nombre</dt>
+                      <dd className="text-gray-900 font-semibold text-sm mt-0.5">{studentFullName}</dd>
                     </div>
-                  )}
-                </dl>
+                    <div>
+                      <dt className="text-gray-400 font-medium">N° Matrícula</dt>
+                      <dd className="text-gray-900 font-mono font-semibold mt-0.5">{practice.student?.studentProfile?.enrollmentCode || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 font-medium">Carrera</dt>
+                      <dd className="text-gray-900 font-semibold mt-0.5">{practice.student?.studentProfile?.career || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 font-medium">Correo</dt>
+                      <dd className="text-gray-900 font-mono mt-0.5">{practice.student?.email || '—'}</dd>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+                    <span className="text-xl">👔</span>
+                    <h3 className="text-base font-bold text-gray-900">Docente Guía</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <dt className="text-gray-400 font-medium">Nombre</dt>
+                      <dd className="text-gray-900 font-semibold text-sm mt-0.5">
+                        {practice.teacher 
+                          ? `${practice.teacher.teacherProfile?.firstName} ${practice.teacher.teacherProfile?.lastName}`
+                          : 'Sin Asignar'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 font-medium">Departamento</dt>
+                      <dd className="text-gray-900 font-semibold mt-0.5">{practice.teacher?.teacherProfile?.department || '—'}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-gray-400 font-medium">Correo</dt>
+                      <dd className="text-gray-900 font-mono mt-0.5">{practice.teacher?.email || '—'}</dd>
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 md:col-span-2">
+              {/* Fila 2: Actividades y Plazos */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
                   <span className="text-xl">📋</span>
-                  <h3 className="text-base font-bold text-gray-900">Detalles y Actividades a Realizar</h3>
+                  <h3 className="text-base font-bold text-gray-900">Actividades y Plazos</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <dt className="text-gray-400 font-medium">Fecha de Inicio</dt>
-                        <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                          {practice.startDate ? new Date(practice.startDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'Por definir'}
+                        <dt className="text-gray-400 font-medium">Inicio</dt>
+                        <dd className="text-gray-900 font-semibold mt-0.5">
+                          {practice.startDate ? new Date(practice.startDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Fecha de Término</dt>
-                        <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                          {practice.endDate ? new Date(practice.endDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'Por definir'}
+                        <dt className="text-gray-400 font-medium">Término</dt>
+                        <dd className="text-gray-900 font-semibold mt-0.5">
+                          {practice.endDate ? new Date(practice.endDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'}
                         </dd>
                       </div>
                     </div>
-                    {practice.description && (
-                      <div>
-                        <dt className="text-gray-400 font-medium">Descripción General</dt>
-                        <dd className="text-gray-700 mt-1 whitespace-pre-wrap">{practice.description}</dd>
-                      </div>
-                    )}
+                    <div>
+                      <dt className="text-gray-400 font-medium">Descripción</dt>
+                      <dd className="text-gray-700 mt-1 whitespace-pre-wrap">{practice.description || 'Sin descripción'}</dd>
+                    </div>
                   </div>
-
                   <div>
-                    <dt className="text-gray-400 font-medium">Actividades a Realizar</dt>
-                    <dd className="text-gray-800 font-medium mt-1 bg-gray-50 p-3.5 rounded-xl border border-gray-200 whitespace-pre-wrap min-h-[5rem]">
+                    <dt className="text-gray-400 font-medium">Actividades Detalladas</dt>
+                    <dd className="text-gray-800 font-medium mt-1 bg-gray-50 p-3 rounded-lg border border-gray-100 whitespace-pre-wrap min-h-[5rem]">
                       {practice.activitiesDescription || 'No se han detallado actividades aún.'}
                     </dd>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 md:col-span-2">
-                <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
-                  <span className="text-xl">👔</span>
-                  <h3 className="text-base font-bold text-gray-900">Jefe Directo / Supervisor en la Empresa</h3>
+              {/* Fila 3: Empresa y Supervisor */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+                    <span className="text-xl">🏢</span>
+                    <h3 className="text-base font-bold text-gray-900">Empresa</h3>
+                  </div>
+                  <dl className="grid grid-cols-1 gap-y-3 text-xs">
+                    <div>
+                      <dt className="text-gray-400 font-medium">Nombre</dt>
+                      <dd className="text-gray-900 font-semibold text-sm mt-0.5">{practice.companyName || 'No especificada'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 font-medium">Dirección</dt>
+                      <dd className="text-gray-900 font-semibold mt-0.5">{practice.companyAddress || '—'}</dd>
+                    </div>
+                  </dl>
                 </div>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <dt className="text-gray-400 font-medium">Nombre del Supervisor</dt>
-                    <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                      {practice.supervisorName || 'No especificado'}
-                    </dd>
+
+                <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
+                  <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
+                    <span className="text-xl">👔</span>
+                    <h3 className="text-base font-bold text-gray-900">Supervisor en Empresa</h3>
                   </div>
-                  <div>
-                    <dt className="text-gray-400 font-medium">Contacto del Supervisor</dt>
-                    <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                      {practice.supervisorContact || 'No especificado'}
-                    </dd>
-                  </div>
-                </dl>
+                  <dl className="grid grid-cols-1 gap-y-3 text-xs">
+                    <div>
+                      <dt className="text-gray-400 font-medium">Nombre</dt>
+                      <dd className="text-gray-900 font-semibold text-sm mt-0.5">{practice.supervisorName || 'No especificado'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-gray-400 font-medium">Contacto</dt>
+                      <dd className="text-gray-900 font-semibold mt-0.5">{practice.supervisorContact || '—'}</dd>
+                    </div>
+                  </dl>
+                </div>
               </div>
             </div>
+
           )}
         </div>
       )}
@@ -952,7 +971,7 @@ export default function PracticeDetailPage() {
             </div>
           )}
 
-          {practice.status !== 'FINISHED' ? (
+          {isAuthorized && practice.status !== 'FINISHED' ? (
             <form onSubmit={handleAddNote} className="p-4 bg-gray-50 border-t border-gray-100 space-y-3">
               <div className="flex gap-2">
                 <input

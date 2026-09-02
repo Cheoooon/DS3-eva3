@@ -24,6 +24,7 @@ export class NotesService {
     await this.create(
       payload.practiceId,
       '',
+      Role.ADMIN, // Fallback dummy
       `La práctica ha cambiado de estado a ${spanishStatus}`,
       true,
     );
@@ -42,6 +43,7 @@ export class NotesService {
     await this.create(
       payload.practiceId,
       '',
+      Role.ADMIN,
       `Se ha asignado al docente ${teacherName} a esta práctica.`,
       true,
     );
@@ -52,6 +54,7 @@ export class NotesService {
     await this.create(
       payload.practiceId,
       '',
+      Role.ADMIN,
       `Se ha desasignado al docente de esta práctica.`,
       true,
     );
@@ -60,12 +63,22 @@ export class NotesService {
   async create(
     practiceId: string,
     authorId: string,
+    authorRole: Role,
     content: string,
     isSystem = false,
     attachment?: NoteAttachmentData,
   ) {
     const practice = await this.prisma.practice.findUnique({ where: { id: practiceId } });
     if (!practice) throw new NotFoundException('Práctica no encontrada');
+    if (!isSystem) {
+      const isAuthorized = authorRole === Role.ADMIN || 
+                           practice.studentId === authorId || 
+                           practice.teacherId === authorId;
+      if (!isAuthorized) {
+        throw new ForbiddenException('No tienes permiso para comentar en esta práctica.');
+      }
+    }
+
     if (!isSystem && practice.status === 'FINISHED') {
       throw new ForbiddenException('No se pueden agregar notas a una práctica finalizada');
     }
