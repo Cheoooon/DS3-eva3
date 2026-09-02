@@ -1,0 +1,27 @@
+{
+  "name": "ds2-eva3",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter backend --filter frontend dev",
+    "dev:backend": "pnpm --filter backend dev",
+    "dev:frontend": "pnpm --filter frontend dev",
+    "build": "pnpm --filter backend build && pnpm --filter frontend build",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:migrate": "pnpm --filter backend run prisma:migrate",
+    "db:push": "pnpm --filter backend run prisma:push",
+    "db:seed": "docker compose exec -T db psql -U user -d practices_db < apps/backend/prisma/seed.sql",
+    "db:studio": "pnpm --filter backend exec prisma studio",
+    "start": "./start.sh"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "devDependencies": {
+    "prisma": "5.22.0"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0"
+  }
+}
