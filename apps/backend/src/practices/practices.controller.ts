@@ -43,8 +43,11 @@ export class PracticesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.practicesService.findOne(id);
+  async findOne(
+    @Param('id') id: string,
+    @Request() req: { user: { userId: string; role: Role } },
+  ) {
+    return this.practicesService.findOneSecure(id, req.user);
   }
 
   @Patch(':id')

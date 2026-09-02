@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
 import { api, Practice, User, PracticeStatus, getFileUrl } from '../../../lib/api';
+import { io } from 'socket.io-client';
 import Link from 'next/link';
 
 export default function PracticeDetailPage() {
@@ -34,6 +35,30 @@ export default function PracticeDetailPage() {
   const [saving, setSaving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+
+  // WebSocket para actualizaciones en tiempo real
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000');
+    
+    socket.on('connect', () => {
+      socket.emit('joinPracticeRoom', id);
+    });
+
+    socket.on('noteCreated', (newNote) => {
+      // Actualizar el estado local con la nueva nota
+      setPractice((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          notes: [...(prev.notes || []), newNote],
+        };
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [id]);
   // Campos del formulario de edición
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
@@ -91,6 +116,14 @@ export default function PracticeDetailPage() {
       setLoading(false);
     }
   }, [id, user]);
+
+    // Polling para actualizar bitácora en tiempo real
+  useEffect(() => {
+    if (activeTab !== 'notes') return;
+    const interval = setInterval(loadPractice, 5000);
+    return () => clearInterval(interval);
+  }, [activeTab, loadPractice]);
+  // # ponytail: polling en lugar de WebSockets; agregar WebSockets si se requiere tiempo real estricto.
 
   useEffect(() => {
     if (!authLoading && !user) {

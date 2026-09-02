@@ -114,6 +114,26 @@ export class PracticesService {
     return practice;
   }
 
+  async findOneSecure(id: string, user: { userId: string; role: Role }) {
+    const practice = await this.prisma.practice.findUnique({
+      where: { id },
+      include: this.defaultInclude,
+    });
+    if (!practice) {
+      throw new NotFoundException('Práctica no encontrada.');
+    }
+    
+    const isOwner = practice.studentId === user.userId;
+    const isAssignedTeacher = practice.teacherId === user.userId;
+    const isAdmin = user.role === Role.ADMIN;
+    
+    if (!isOwner && !isAssignedTeacher && !isAdmin) {
+      throw new ForbiddenException('No tienes permiso para ver esta práctica.');
+    }
+    
+    return practice;
+  }
+
   async update(id: string, user: { userId: string; role: Role }, data: UpdatePracticeData) {
     const practice = await this.findOne(id);
 
@@ -165,22 +185,21 @@ export class PracticesService {
   }
 
   async assignTeacher(practiceId: string, teacherId: string) {
-    return this.prisma.practice.update({
+    const practice = await this.prisma.practice.update({
       where: { id: practiceId },
       data: { teacherId },
-      include: this.defaultInclude,
     });
+    this.eventEmitter.emit('practice.teacherAssigned', { practiceId, teacherId });
+    return practice;
   }
 
   async removeTeacher(practiceId: string, userRole: Role) {
-    if (userRole !== Role.ADMIN) {
-      throw new ForbiddenException('Solo el administrador puede desasignar profesores.');
-    }
-    return this.prisma.practice.update({
+    const practice = await this.prisma.practice.update({
       where: { id: practiceId },
       data: { teacherId: null },
-      include: this.defaultInclude,
     });
+    this.eventEmitter.emit('practice.teacherRemoved', { practiceId });
+    return practice;
   }
 
   async updateStatus(id: string, status: PracticeStatus) {

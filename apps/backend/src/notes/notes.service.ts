@@ -1,3 +1,4 @@
+import { NotesGateway } from './notes.gateway';
 import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
@@ -11,7 +12,7 @@ export interface NoteAttachmentData {
 
 @Injectable()
 export class NotesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notesGateway: NotesGateway) {}
 
   @OnEvent('practice.statusChanged')
   async handleStatusChanged(payload: { practiceId: string; status: string }) {
@@ -28,6 +29,34 @@ export class NotesService {
     );
   }
 
+  @OnEvent('practice.teacherAssigned')
+  async handleTeacherAssigned(payload: { practiceId: string; teacherId: string }) {
+    const teacher = await this.prisma.user.findUnique({
+      where: { id: payload.teacherId },
+      include: { teacherProfile: true },
+    });
+    const teacherName = teacher?.teacherProfile
+      ? `${teacher.teacherProfile.firstName} ${teacher.teacherProfile.lastName}`
+      : teacher?.email || 'Desconocido';
+
+    await this.create(
+      payload.practiceId,
+      '',
+      `Se ha asignado al docente ${teacherName} a esta práctica.`,
+      true,
+    );
+  }
+
+  @OnEvent('practice.teacherRemoved')
+  async handleTeacherRemoved(payload: { practiceId: string }) {
+    await this.create(
+      payload.practiceId,
+      '',
+      `Se ha desasignado al docente de esta práctica.`,
+      true,
+    );
+  }
+  // Método auxiliar para no romper los eventos de OnEvent existentes que llaman a create
   async create(
     practiceId: string,
     authorId: string,
@@ -41,13 +70,12 @@ export class NotesService {
       throw new ForbiddenException('No se pueden agregar notas a una práctica finalizada');
     }
 
-
-    return this.prisma.note.create({
+    const note = await this.prisma.note.create({
       data: {
-        practiceId,
-        authorId: authorId || null,
         content,
         isSystem,
+        practiceId,
+        authorId: isSystem ? undefined : authorId,
         attachments: attachment
           ? {
               create: {
@@ -65,6 +93,8 @@ export class NotesService {
         attachments: true,
       },
     });
+    this.notesGateway.notifyNoteCreated(practiceId, note);
+    return note;
   }
 
   async update(noteId: string, content: string, userId: string, role: Role) {
