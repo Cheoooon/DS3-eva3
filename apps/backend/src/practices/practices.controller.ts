@@ -33,7 +33,8 @@ export class PracticesController {
       (req.user.role === Role.ADMIN || req.user.role === Role.TEACHER) && body.studentId
         ? body.studentId
         : req.user.userId;
-    return this.practicesService.create(studentId, body);
+    const teacherId = req.user.role === Role.TEACHER ? req.user.userId : undefined;
+    return this.practicesService.create(studentId, body, teacherId);
   }
 
   @Get()

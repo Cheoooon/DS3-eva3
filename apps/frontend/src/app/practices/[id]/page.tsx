@@ -7,23 +7,34 @@ import { api, Practice, User, PracticeStatus, getFileUrl } from '../../../lib/ap
 import Link from 'next/link';
 
 export default function PracticeDetailPage() {
+  const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
 
+  // Estados de la práctica y datos
   const [practice, setPractice] = useState<Practice | null>(null);
-  const [teachers, setTeachers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [teachers, setTeachers] = useState<User[]>([]);
+
   const searchParams = useSearchParams();
   const activeTab = (searchParams.get('tab') as 'detail' | 'notes') || 'detail';
   const setActiveTab = (tab: 'detail' | 'notes') => router.push(`?tab=${tab}`);
 
-  // Edit Mode state (Only Assigned Teacher or Admin)
+  const [notesToShow, setNotesToShow] = useState(5);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [practice?.notes, notesToShow]);
+
+  // Modos de edición y alertas
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Form fields for editing
+  // Campos del formulario de edición
   const [editTitle, setEditTitle] = useState('');
   const [editDesc, setEditDesc] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
@@ -38,10 +49,9 @@ export default function PracticeDetailPage() {
   const [editStudentPhone, setEditStudentPhone] = useState('');
   const [editStudentCareer, setEditStudentCareer] = useState('');
 
-  // Edit Notes state
+  // Estados de notas y bitácora
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editNoteContent, setEditNoteContent] = useState('');
-  // Notes state
   const [newNoteContent, setNewNoteContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submittingNote, setSubmittingNote] = useState(false);
@@ -54,7 +64,6 @@ export default function PracticeDetailPage() {
       const data = await api.getPractice(id);
       setPractice(data);
 
-      // Populate edit fields
       setEditTitle(data.title || '');
       setEditDesc(data.description || '');
       setEditStartDate(data.startDate ? new Date(data.startDate).toISOString().split('T')[0] : '');
@@ -114,7 +123,14 @@ export default function PracticeDetailPage() {
     );
   }
 
-  // Permiso de edición: Solo ADMIN o el DOCENTE asignado
+  const studentFullName = practice.student?.studentProfile
+    ? `${practice.student.studentProfile.firstName} ${practice.student.studentProfile.lastName}`
+    : practice.student?.email || '—';
+
+  const teacherFullName = practice.teacher?.teacherProfile
+    ? `${practice.teacher.teacherProfile.firstName} ${practice.teacher.teacherProfile.lastName}`
+    : practice.teacher?.email || 'Sin Asignar';
+
   const canEdit =
     user?.role === 'ADMIN' ||
     (user?.role === 'TEACHER' && practice.teacherId === user.id);
@@ -138,7 +154,6 @@ export default function PracticeDetailPage() {
         companyDetails: editCompanyDetails,
         supervisorName: editSupervisorName,
         supervisorContact: editSupervisorContact,
-        // Solo el Admin puede enviar modificaciones de datos de perfil del estudiante
         studentPhone: user?.role === 'ADMIN' ? editStudentPhone : undefined,
         studentCareer: user?.role === 'ADMIN' ? editStudentCareer : undefined,
       });
@@ -152,39 +167,6 @@ export default function PracticeDetailPage() {
       });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleUpdateStatus = async (newStatus: PracticeStatus) => {
-    try {
-      const updated = await api.updateStatus(practice.id, newStatus);
-      setPractice(updated);
-      setFeedbackMsg({
-        type: 'success',
-        text: `Estado actualizado a ${newStatus === 'FINISHED' ? 'FINALIZADA' : 'EN PROGRESO'}.`,
-      });
-      await loadPractice();
-    } catch (err: unknown) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error al actualizar estado',
-      });
-    }
-  };
-
-  const handleAssignTeacher = async (teacherId: string) => {
-    try {
-      const updated = teacherId
-        ? await api.assignTeacher(practice.id, teacherId)
-        : await api.removeTeacher(practice.id);
-      setPractice(updated);
-      setFeedbackMsg({ type: 'success', text: teacherId ? 'Docente asignado.' : 'Docente desasignado.' });
-      await loadPractice();
-    } catch (err: unknown) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error al asignar docente',
-      });
     }
   };
 
@@ -225,6 +207,7 @@ export default function PracticeDetailPage() {
       });
     }
   };
+
   const handleUpdateNote = async (noteId: string, content: string) => {
     try {
       await api.updateNote(noteId, content);
@@ -240,17 +223,41 @@ export default function PracticeDetailPage() {
     }
   };
 
-  const studentFullName = practice.student?.studentProfile
-    ? `${practice.student.studentProfile.firstName} ${practice.student.studentProfile.lastName}`
-    : practice.student?.email || 'Estudiante';
+    const handleUpdateStatus = async (newStatus: PracticeStatus) => {
+    try {
+      const updated = await api.updateStatus(practice.id, newStatus);
+      setPractice(updated);
+      setFeedbackMsg({
+        type: 'success',
+        text: `Estado actualizado a ${newStatus === 'FINISHED' ? 'FINALIZADA' : 'EN PROGRESO'}.`,
+      });
+      await loadPractice();
+    } catch (err: unknown) {
+      setFeedbackMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al actualizar estado',
+      });
+    }
+  };
 
-  const teacherFullName = practice.teacher?.teacherProfile
-    ? `${practice.teacher.teacherProfile.firstName} ${practice.teacher.teacherProfile.lastName}`
-    : practice.teacher?.email || 'Sin Asignar';
+  const handleAssignTeacher = async (teacherId: string) => {
+    try {
+      const updated = teacherId
+        ? await api.assignTeacher(practice.id, teacherId)
+        : await api.removeTeacher(practice.id);
+      setPractice(updated);
+      setFeedbackMsg({ type: 'success', text: teacherId ? 'Docente asignado.' : 'Docente desasignado.' });
+      await loadPractice();
+    } catch (err: unknown) {
+      setFeedbackMsg({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Error al asignar docente',
+      });
+    }
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Back Button & Top Navigation */}
       <div className="flex items-center justify-between">
         <Link
           href="/dashboard"
@@ -263,7 +270,6 @@ export default function PracticeDetailPage() {
         </Link>
       </div>
 
-      {/* Feedback Toast */}
       {feedbackMsg && (
         <div
           className={`p-4 rounded-xl flex items-center justify-between shadow-sm ${
@@ -282,22 +288,21 @@ export default function PracticeDetailPage() {
         </div>
       )}
 
-      {/* Ficha Header Card */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center space-x-3">
               <span
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${
-                  isFinished
+                  practice.status === 'FINISHED'
                     ? 'bg-gray-100 text-gray-700 border-gray-300'
                     : 'bg-emerald-100 text-emerald-800 border-emerald-300'
                 }`}
               >
-                {isFinished ? 'FINALIZADA' : 'EN PROGRESO'}
+                {practice.status === 'FINISHED' ? 'FINALIZADA' : 'EN PROGRESO'}
               </span>
               <span className="text-xs text-gray-400 font-mono">
-                Registrada: {new Date(practice.createdAt).toLocaleDateString()}
+                Registrada: {new Date(practice.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })}
               </span>
             </div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight">{practice.title}</h1>
@@ -308,8 +313,8 @@ export default function PracticeDetailPage() {
               </span>
             </p>
           </div>
-
-          {/* Quick Actions (Role-based) */}
+        </div>
+        {/* Quick Actions (Role-based) */}
           <div className="flex flex-wrap items-center gap-2">
             {user?.role === 'ADMIN' && (
               <div className="flex items-center space-x-2">
@@ -351,40 +356,36 @@ export default function PracticeDetailPage() {
               </button>
             )}
           </div>
-        </div>
-
-        {/* Tab Navigation (Detalle y Bitácora) */}
-        <div className="flex border-b border-gray-200 pt-2 space-x-8">
-          <button
-            onClick={() => setActiveTab('detail')}
-            className={`pb-3 text-sm font-bold tracking-tight border-b-2 transition flex items-center space-x-2 ${
-              activeTab === 'detail'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <span>📋</span>
-            <span>Detalle Completo</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('notes')}
-            className={`pb-3 text-sm font-bold tracking-tight border-b-2 transition flex items-center space-x-2 ${
-              activeTab === 'notes'
-                ? 'border-indigo-600 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <span>📝</span>
-            <span>Bitácora de Observaciones ({practice.notes?.length || 0})</span>
-          </button>
-        </div>
       </div>
 
-      {/* TAB 1: DETALLE DE LA FICHA */}
+      <div className="flex border-b border-gray-200 pt-2 space-x-8">
+        <button
+          onClick={() => setActiveTab('detail')}
+          className={`pb-3 text-sm font-bold tracking-tight border-b-2 transition flex items-center space-x-2 ${
+            activeTab === 'detail'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <span>📋</span>
+          <span>Detalle Completo</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('notes')}
+          className={`pb-3 text-sm font-bold tracking-tight border-b-2 transition flex items-center space-x-2 ${
+            activeTab === 'notes'
+              ? 'border-indigo-600 text-indigo-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+          }`}
+        >
+          <span>📝</span>
+          <span>Bitácora de Observaciones ({practice.notes?.length || 0})</span>
+        </button>
+      </div>
+
       {activeTab === 'detail' && (
         <div className="space-y-6">
           {isEditing ? (
-            /* EDIT FORM (FOR TEACHER OR ADMIN) */
             <form onSubmit={handleSaveDetails} className="bg-white rounded-2xl border border-indigo-200 shadow-lg p-6 space-y-6">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <div>
@@ -400,7 +401,6 @@ export default function PracticeDetailPage() {
                 </span>
               </div>
 
-              {/* Sección 1: Datos del Estudiante */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center space-x-1.5">
@@ -415,7 +415,6 @@ export default function PracticeDetailPage() {
                 </div>
 
                 {user?.role === 'TEACHER' ? (
-                  /* Docente: Solo vista de datos del estudiante */
                   <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
                       <span className="text-gray-400 font-medium block">Nombre Completo:</span>
@@ -441,7 +440,6 @@ export default function PracticeDetailPage() {
                     </div>
                   </div>
                 ) : (
-                  /* Admin: Puede modificar carrera y teléfono si es necesario */
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Carrera</label>
@@ -467,7 +465,6 @@ export default function PracticeDetailPage() {
                 )}
               </div>
 
-              {/* Sección 2: Práctica y Actividades */}
               <div className="space-y-3 pt-3 border-t border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center space-x-1.5">
                   <span>📅</span>
@@ -527,7 +524,6 @@ export default function PracticeDetailPage() {
                 </div>
               </div>
 
-              {/* Sección 3: Empresa */}
               <div className="space-y-3 pt-3 border-t border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center space-x-1.5">
                   <span>🏢</span>
@@ -577,7 +573,6 @@ export default function PracticeDetailPage() {
                 </div>
               </div>
 
-              {/* Sección 4: Jefe Directo */}
               <div className="space-y-3 pt-3 border-t border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600 flex items-center space-x-1.5">
                   <span>👔</span>
@@ -607,7 +602,6 @@ export default function PracticeDetailPage() {
                 </div>
               </div>
 
-              {/* Botones de acción del formulario */}
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
                 <button
                   type="button"
@@ -626,9 +620,7 @@ export default function PracticeDetailPage() {
               </div>
             </form>
           ) : (
-            /* READONLY CARDS VIEW */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card 1: Estudiante */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
                   <span className="text-xl">🎓</span>
@@ -664,7 +656,6 @@ export default function PracticeDetailPage() {
                 </dl>
               </div>
 
-              {/* Card 2: Empresa */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4">
                 <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
                   <span className="text-xl">🏢</span>
@@ -694,7 +685,6 @@ export default function PracticeDetailPage() {
                 </dl>
               </div>
 
-              {/* Card 3: Detalles de la Práctica y Actividades */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
                   <span className="text-xl">📋</span>
@@ -706,13 +696,13 @@ export default function PracticeDetailPage() {
                       <div>
                         <dt className="text-gray-400 font-medium">Fecha de Inicio</dt>
                         <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                          {practice.startDate ? new Date(practice.startDate).toLocaleDateString() : 'Por definir'}
+                          {practice.startDate ? new Date(practice.startDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'Por definir'}
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-gray-400 font-medium">Fecha de Término</dt>
+                        <dt className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Fecha de Término</dt>
                         <dd className="text-gray-900 font-semibold text-sm mt-0.5">
-                          {practice.endDate ? new Date(practice.endDate).toLocaleDateString() : 'Por definir'}
+                          {practice.endDate ? new Date(practice.endDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : 'Por definir'}
                         </dd>
                       </div>
                     </div>
@@ -733,7 +723,6 @@ export default function PracticeDetailPage() {
                 </div>
               </div>
 
-              {/* Card 4: Jefe Directo */}
               <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm space-y-4 md:col-span-2">
                 <div className="flex items-center space-x-2 border-b border-gray-100 pb-3">
                   <span className="text-xl">👔</span>
@@ -759,10 +748,8 @@ export default function PracticeDetailPage() {
         </div>
       )}
 
-      {/* TAB 2: BITÁCORA CON ADJUNTOS */}
       {activeTab === 'notes' && (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-          {/* Notes Header */}
           <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <div>
               <h3 className="text-base font-bold text-gray-900">Bitácora y Seguimiento</h3>
@@ -772,16 +759,36 @@ export default function PracticeDetailPage() {
             </div>
           </div>
 
-          {/* Notes List */}
-          <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto">
+          <div className="p-6 space-y-4 max-h-[600px] overflow-y-auto" ref={scrollRef}>
             {(!practice.notes || practice.notes.length === 0) ? (
               <div className="p-12 text-center text-gray-400 text-sm bg-gray-50 rounded-2xl border border-dashed border-gray-200">
                 <span className="text-3xl block mb-2">📝</span>
                 Aún no hay notas u observaciones registradas en la bitácora.
               </div>
             ) : (
-              <div className="space-y-3">
-                {practice.notes.map((note) => {
+              <>
+                {notesToShow < (practice.notes?.length || 0) && (
+                  <div className="p-4 flex justify-center">
+                    <button
+                    onClick={() => {
+                      const scrollContainer = scrollRef.current;
+                      const prevScrollHeight = scrollContainer?.scrollHeight || 0;
+                      setNotesToShow(notesToShow + 5);
+                      
+                      // Mantenemos la posición relativa al añadir nuevos mensajes arriba
+                      setTimeout(() => {
+                        if (scrollContainer) {
+                          scrollContainer.scrollTop = (scrollContainer.scrollHeight || 0) - prevScrollHeight;
+                        }
+                      }, 0);
+                    }}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition"
+                    >
+                      Ver más mensajes antiguos
+                    </button>
+                  </div>
+                )}
+                {(practice.notes || []).slice(0, notesToShow).reverse().map((note) => {
                   const authorName = note.author
                     ? note.author.studentProfile
                       ? `${note.author.studentProfile.firstName} ${note.author.studentProfile.lastName}`
@@ -872,7 +879,6 @@ export default function PracticeDetailPage() {
                         <p className="text-sm text-gray-700 whitespace-pre-wrap">{note.content}</p>
                       )}
 
-                      {/* Adjuntos / Attachments */}
                       {note.attachments && note.attachments.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-gray-100 space-y-2">
                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">
@@ -904,11 +910,10 @@ export default function PracticeDetailPage() {
                     </div>
                   );
                 })}
-              </div>
+              </>
             )}
           </div>
 
-          {/* Add Note Form with File Attachment */}
           {practice.status !== 'FINISHED' ? (
             <form onSubmit={handleAddNote} className="p-4 bg-gray-50 border-t border-gray-100 space-y-3">
               <div className="flex gap-2">

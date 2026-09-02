@@ -71,7 +71,7 @@ export class NotesService {
     const note = await this.prisma.note.findUnique({ where: { id: noteId } });
     if (!note) throw new NotFoundException('Nota no encontrada');
 
-    if (role !== Role.ADMIN) {
+    if (role === Role.STUDENT) {
       if (note.isSystem) throw new ForbiddenException('No puede editar notas del sistema');
       if (note.authorId !== userId) throw new ForbiddenException('No puede editar notas ajenas');
 
@@ -96,7 +96,7 @@ export class NotesService {
     const note = await this.prisma.note.findUnique({ where: { id: noteId } });
     if (!note) throw new NotFoundException('Nota no encontrada');
 
-    if (role !== Role.ADMIN) {
+    if (role === Role.STUDENT) {
       if (note.isSystem) throw new ForbiddenException('No puede eliminar notas del sistema');
       if (note.authorId !== userId) throw new ForbiddenException('No puede eliminar notas ajenas');
 
@@ -104,7 +104,6 @@ export class NotesService {
       const limit = new Date(note.createdAt.getTime() + 5 * 60 * 1000);
       if (now > limit) throw new ForbiddenException('El tiempo de eliminación (5 min) ha expirado');
     }
-
     return this.prisma.note.delete({ where: { id: noteId } });
   }
 }

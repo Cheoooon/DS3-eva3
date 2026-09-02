@@ -49,7 +49,7 @@ export class PracticesService {
     };
   }
 
-  async create(studentId: string, data: CreatePracticeData) {
+  async create(studentId: string, data: CreatePracticeData, teacherId?: string) {
     const activePractice = await this.prisma.practice.findFirst({
       where: {
         studentId,
@@ -75,6 +75,7 @@ export class PracticesService {
         supervisorName: data.supervisorName,
         supervisorContact: data.supervisorContact,
         studentId,
+        teacherId,
         status: PracticeStatus.IN_PROGRESS,
       },
       include: this.defaultInclude,

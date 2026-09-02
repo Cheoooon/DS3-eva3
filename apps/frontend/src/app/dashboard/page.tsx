@@ -16,15 +16,18 @@ export default function DashboardPage() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState<'practices' | 'users'>('practices');
-  // Filters
+
+  // Filtros y Paginación de notas
   const [filterStatus, setFilterStatus] = useState<PracticeStatus | 'ALL' | 'UNASSIGNED'>('ALL');
+  const [filterDate, setFilterDate] = useState('');
+  const [notesToShow, setNotesToShow] = useState(5);
+  const scrollRefModal = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user) {
-      setFilterStatus(user.role === 'ADMIN' ? 'UNASSIGNED' : 'ALL');
+      setFilterStatus(user.role === 'ADMIN' ? 'UNASSIGNED' : 'IN_PROGRESS');
     }
   }, [user]);
-  const [filterDate, setFilterDate] = useState('');
 
   const filteredPractices = practices.filter((p) => {
     let matchStatus = true;
@@ -36,21 +39,27 @@ export default function DashboardPage() {
 
     let matchDate = true;
     if (filterDate) {
-      matchDate = p.startDate?.startsWith(filterDate) || false;
+      matchDate = p.createdAt?.startsWith(filterDate) || false;
     }
 
     return matchStatus && matchDate;
   });
 
-
-  // Quick Bitácora Modal
+  // Quick Bitácora Modal State
   const [selectedPracticeForNotes, setSelectedPracticeForNotes] = useState<Practice | null>(null);
   const [quickNoteContent, setQuickNoteContent] = useState('');
   const [quickNoteFile, setQuickNoteFile] = useState<File | null>(null);
   const [submittingNote, setSubmittingNote] = useState(false);
   const quickFileInputRef = useRef<HTMLInputElement>(null);
 
-  // New Practice Modal State (Full Details)
+  // Auto-scroll al final del modal al abrirlo o cambiar notas (estilo chat)
+  useEffect(() => {
+    if (selectedPracticeForNotes && scrollRefModal.current) {
+      scrollRefModal.current.scrollTop = scrollRefModal.current.scrollHeight;
+    }
+  }, [selectedPracticeForNotes, selectedPracticeForNotes?.notes?.length]);
+
+  // New Practice Modal State
   const [showNewPracticeModal, setShowNewPracticeModal] = useState(false);
   const [practiceTitle, setPracticeTitle] = useState('');
   const [practiceDesc, setPracticeDesc] = useState('');
@@ -66,7 +75,7 @@ export default function DashboardPage() {
   const [practiceStudentId, setPracticeStudentId] = useState('');
   const [creatingPractice, setCreatingPractice] = useState(false);
 
-  // New User Form state (Admin)
+  // New User Form State
   const [showNewUserModal, setShowNewUserModal] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('password123');
@@ -78,7 +87,7 @@ export default function DashboardPage() {
   const [newUserDepartment, setNewUserDepartment] = useState('');
   const [creatingUser, setCreatingUser] = useState(false);
 
-  // Edit User Form state (Admin)
+  // Edit User Form State
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserPassword, setEditUserPassword] = useState('');
@@ -110,8 +119,12 @@ export default function DashboardPage() {
         setStudents(studentsData);
         setAllUsers(usersData);
       } else if (user.role === 'TEACHER') {
-        const teachersData = await api.getUsers('TEACHER');
+        const [teachersData, studentsData] = await Promise.all([
+          api.getUsers('TEACHER'),
+          api.getUsers('STUDENT'),
+        ]);
         setTeachers(teachersData);
+        setStudents(studentsData);
       }
     } catch (err: unknown) {
       setFeedbackMsg({
@@ -264,32 +277,6 @@ export default function DashboardPage() {
     }
   };
 
-  const handleAssignTeacher = async (practiceId: string, teacherId: string) => {
-    try {
-      await api.assignTeacher(practiceId, teacherId);
-      setFeedbackMsg({ type: 'success', text: 'Docente asignado.' });
-      await loadData();
-    } catch (err: unknown) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error al asignar docente',
-      });
-    }
-  };
-
-  const handleRemoveTeacher = async (practiceId: string) => {
-    try {
-      await api.removeTeacher(practiceId);
-      setFeedbackMsg({ type: 'success', text: 'Docente desasignado.' });
-      await loadData();
-    } catch (err: unknown) {
-      setFeedbackMsg({
-        type: 'error',
-        text: err instanceof Error ? err.message : 'Error al desasignar docente',
-      });
-    }
-  };
-
   const handleUpdateStatus = async (practiceId: string, status: PracticeStatus) => {
     try {
       await api.updateStatus(practiceId, status);
@@ -309,8 +296,31 @@ export default function DashboardPage() {
   const handleAddQuickNote = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPracticeForNotes || !quickNoteContent.trim() || selectedPracticeForNotes.status === 'FINISHED') return;
+    setSubmittingNote(true);
+    try {
+      await api.createNote({
+        practiceId: selectedPracticeForNotes.id,
+        content: quickNoteContent.trim(),
+        file: quickNoteFile || undefined,
+      });
+      setQuickNoteContent('');
+      setQuickNoteFile(null);
+      if (quickFileInputRef.current) quickFileInputRef.current.value = '';
+      await loadData();
+      const updatedPractice = await api.getPractice(selectedPracticeForNotes.id);
+      setSelectedPracticeForNotes(updatedPractice);
+      setFeedbackMsg({ type: 'success', text: 'Nota agregada.' });
+      setTimeout(() => {
+        if (scrollRefModal.current) {
+          scrollRefModal.current.scrollTop = scrollRefModal.current.scrollHeight;
+        }
+      }, 100);
+    } catch (err) {
+      setFeedbackMsg({ type: 'error', text: 'Error al agregar nota' });
+    } finally {
+      setSubmittingNote(false);
+    }
   };
-
 
   const getStudentName = (p: Practice) => {
     if (p.student?.studentProfile) {
@@ -328,7 +338,6 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-      {/* Toast Feedback */}
       {feedbackMsg && (
         <div
           className={`p-4 rounded-xl flex items-center justify-between shadow-sm transition ${
@@ -347,7 +356,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Header Banner */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-black text-gray-900 tracking-tight">Panel de Control</h1>
@@ -379,7 +387,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Admin Tabs */}
       {user?.role === 'ADMIN' && (
         <div className="flex border-b border-gray-200 space-x-8">
           <button
@@ -405,21 +412,20 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Practices Grid Section */}
       {(user?.role !== 'ADMIN' || activeTab === 'practices') && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-lg font-bold text-gray-900">
-            {user?.role === 'STUDENT' ? 'Mi Práctica Profesional' : 'Listado de Prácticas'}
+              {user?.role === 'STUDENT' ? 'Mi Práctica Profesional' : 'Listado de Prácticas'}
             </h2>
             <span className="text-xs font-medium text-gray-500">Total: {practices.length}</span>
           </div>
-          {/* Filters Bar */}
+
           <div className="bg-white p-4 rounded-xl border border-gray-200 flex flex-wrap gap-4 items-center">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as PracticeStatus | 'ALL' | 'UNASSIGNED')}
-              className="text-sm border-gray-300 rounded-lg"
+              className="text-sm border-gray-300 rounded-lg px-3 py-1.5"
             >
               <option value="ALL">Todos los estados</option>
               {user.role === 'ADMIN' && <option value="UNASSIGNED">Sin asignar</option>}
@@ -430,7 +436,7 @@ export default function DashboardPage() {
               type="date"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="text-sm border-gray-300 rounded-lg"
+              className="text-sm border-gray-300 rounded-lg px-3 py-1.5"
             />
             <button
               onClick={() => { setFilterStatus('ALL'); setFilterDate(''); }}
@@ -439,7 +445,6 @@ export default function DashboardPage() {
               Limpiar filtros
             </button>
           </div>
-
 
           {loadingData ? (
             <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
@@ -480,7 +485,6 @@ export default function DashboardPage() {
                     className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition flex flex-col justify-between overflow-hidden"
                   >
                     <div className="p-5 space-y-3">
-                      {/* Status & Date Header */}
                       <div className="flex items-start justify-between gap-2">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${
@@ -492,16 +496,14 @@ export default function DashboardPage() {
                           {isFinished ? 'FINALIZADA' : 'EN PROGRESO'}
                         </span>
                         <span className="text-xs text-gray-400 font-mono">
-                          {new Date(practice.createdAt).toLocaleDateString()}
+                          {new Date(practice.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })}
                         </span>
                       </div>
 
-                      {/* Title */}
                       <h3 className="text-base font-bold text-gray-900 line-clamp-2">
                         {practice.title}
                       </h3>
 
-                      {/* Company & Dates Info */}
                       <div className="bg-gray-50 p-3 rounded-xl border border-gray-100 space-y-1 text-xs">
                         <div className="flex justify-between">
                           <span className="text-gray-500 font-medium">Empresa:</span>
@@ -512,13 +514,12 @@ export default function DashboardPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500 font-medium">Período:</span>
                           <span className="font-semibold text-gray-700">
-                            {practice.startDate ? new Date(practice.startDate).toLocaleDateString() : '—'} a{' '}
-                            {practice.endDate ? new Date(practice.endDate).toLocaleDateString() : '—'}
+                            {practice.startDate ? new Date(practice.startDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'} a{' '}
+                            {practice.endDate ? new Date(practice.endDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'}
                           </span>
                         </div>
                       </div>
 
-                      {/* Student & Teacher Info */}
                       <div className="space-y-1 text-xs pt-1">
                         <div className="flex items-center justify-between text-gray-600">
                           <span className="text-gray-400 font-medium">Estudiante:</span>
@@ -543,7 +544,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Card Actions Footer */}
                     <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
                       <Link
                         href={`/practices/${practice.id}`}
@@ -561,7 +561,6 @@ export default function DashboardPage() {
                           📝 ({notesCount})
                         </button>
 
-                        {/* Status Toggle */}
                         {(user?.role === 'ADMIN' || (user?.role === 'TEACHER' && practice.teacherId === user?.id)) && (
                           <button
                             onClick={() =>
@@ -589,7 +588,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Users List Section (Admin Tab) */}
       {user?.role === 'ADMIN' && activeTab === 'users' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center">
@@ -643,7 +641,7 @@ export default function DashboardPage() {
                               ? 'bg-purple-100 text-purple-800 border border-purple-300'
                               : u.role === 'TEACHER'
                               ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                              : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                              : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                           }`}
                         >
                           {u.role}
@@ -651,7 +649,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4 text-xs text-gray-500">{detail}</td>
                       <td className="px-6 py-4 text-xs text-gray-400 font-mono">
-                        {new Date(u.createdAt).toLocaleDateString()}
+                        {new Date(u.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button
@@ -670,7 +668,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Modal: Editar Usuario (Admin) */}
       {editingUser && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -820,7 +817,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Modal: Quick Bitácora Popup con Adjuntos */}
+      {/* Modal: Quick Bitácora Popup con estilo Chat */}
       {selectedPracticeForNotes && (
         <div className="fixed inset-0 !m-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden">
@@ -840,111 +837,126 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            <div className="p-5 overflow-y-auto flex-1 space-y-3">
-              {(!selectedPracticeForNotes.notes || selectedPracticeForNotes.notes.length === 0) ? (
-                <div className="p-8 text-center text-gray-400 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                  No hay notas registradas todavía.
-                </div>
-              ) : (
-                selectedPracticeForNotes.notes.map((note) => (
-                  <div
-                    key={note.id}
-                    className={`p-3 rounded-xl border text-xs ${
-                      note.isSystem
-                        ? 'bg-amber-50 border-amber-200 text-amber-900'
-                        : 'bg-white border-gray-200 shadow-sm'
-                    }`}
-                  >
-                    <div className="flex justify-between font-bold text-gray-900 mb-1">
-                      <span>{note.author?.email || 'Sistema'}</span>
-                      <span className="text-[10px] text-gray-400 font-mono">
-                        {new Date(note.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+            <div className="p-5 overflow-y-auto flex-1 space-y-3" ref={scrollRefModal}>
+              {(() => {
+                const modalSortedNotes = [...(selectedPracticeForNotes.notes || [])].sort(
+                  (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                );
+                const modalVisibleNotes = modalSortedNotes.slice(-notesToShow);
 
-                    {/* Adjuntos en modal rápido */}
-                    {note.attachments && note.attachments.length > 0 && (
-                      <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1.5">
-                        {note.attachments.map((att) => (
-                          <a
-                            key={att.id}
-                            href={getFileUrl(att.fileUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center space-x-1 px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded border border-indigo-200 text-[11px] font-medium"
-                          >
-                            <span>📎</span>
-                            <span className="truncate max-w-[150px]">{att.fileName}</span>
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                return modalSortedNotes.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400 text-sm bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    No hay notas registradas todavía.
                   </div>
-                ))
-              )}
+                ) : (
+                  <>
+                    {notesToShow < modalSortedNotes.length && (
+                      <button
+                        onClick={() => {
+                          const container = scrollRefModal.current;
+                          const prevHeight = container?.scrollHeight || 0;
+                          setNotesToShow((prev) => prev + 5);
+                          setTimeout(() => {
+                            if (container) {
+                              container.scrollTop = container.scrollHeight - prevHeight;
+                            }
+                          }, 0);
+                        }}
+                        className="w-full py-2 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 rounded-xl"
+                      >
+                        Cargar mensajes más antiguos
+                      </button>
+                    )}
+                    {modalVisibleNotes.map((note) => {
+                      const authorName = note.author
+                        ? note.author.studentProfile
+                          ? `${note.author.studentProfile.firstName} ${note.author.studentProfile.lastName}`
+                          : note.author.teacherProfile
+                          ? `${note.author.teacherProfile.firstName} ${note.author.teacherProfile.lastName}`
+                          : note.author.email
+                        : 'Sistema';
+
+                      return (
+                        <div
+                          key={note.id}
+                          className={`p-3 rounded-xl border ${
+                            note.isSystem ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200 shadow-sm'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-gray-900">{authorName}</span>
+                            <span className="text-[10px] text-gray-400 font-mono">
+                              {new Date(note.createdAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-700 whitespace-pre-wrap">{note.content}</p>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
             </div>
 
             {selectedPracticeForNotes.status !== 'FINISHED' && (
               <form onSubmit={handleAddQuickNote} className="p-3 bg-gray-50 border-t border-gray-100 space-y-2">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={quickNoteContent}
-                  onChange={(e) => setQuickNoteContent(e.target.value)}
-                  placeholder="Escribe una observación..."
-                  className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
-                  required
-                />
-                <input
-                  type="file"
-                  ref={quickFileInputRef}
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setQuickNoteFile(e.target.files[0]);
-                    }
-                  }}
-                  className="hidden"
-                  id="quick-file-upload"
-                />
-                <label
-                  htmlFor="quick-file-upload"
-                  className="px-2.5 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-100 cursor-pointer shadow-sm"
-                  title="Adjuntar archivo"
-                >
-                  📎
-                </label>
-                <button
-                  type="submit"
-                  disabled={submittingNote || !quickNoteContent.trim()}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition disabled:opacity-50"
-                >
-                  {submittingNote ? '...' : 'Enviar'}
-                </button>
-              </div>
-
-              {quickNoteFile && (
-                <div className="flex items-center justify-between text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200">
-                  <span className="truncate">📎 {quickNoteFile.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuickNoteFile(null);
-                      if (quickFileInputRef.current) quickFileInputRef.current.value = '';
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={quickNoteContent}
+                    onChange={(e) => setQuickNoteContent(e.target.value)}
+                    placeholder="Escribe una observación..."
+                    className="flex-1 px-3 py-2 text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white"
+                    required
+                  />
+                  <input
+                    type="file"
+                    ref={quickFileInputRef}
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setQuickNoteFile(e.target.files[0]);
+                      }
                     }}
-                    className="text-red-500 font-bold ml-2"
+                    className="hidden"
+                    id="quick-file-upload"
+                  />
+                  <label
+                    htmlFor="quick-file-upload"
+                    className="px-2.5 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-700 bg-white hover:bg-gray-100 cursor-pointer shadow-sm"
+                    title="Adjuntar archivo"
                   >
-                    ✕
+                    📎
+                  </label>
+                  <button
+                    type="submit"
+                    disabled={submittingNote || !quickNoteContent.trim()}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow transition disabled:opacity-50"
+                  >
+                    {submittingNote ? '...' : 'Enviar'}
                   </button>
                 </div>
-              )}
+
+                {quickNoteFile && (
+                  <div className="flex items-center justify-between text-[11px] bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg border border-indigo-200">
+                    <span className="truncate">📎 {quickNoteFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setQuickNoteFile(null);
+                        if (quickFileInputRef.current) quickFileInputRef.current.value = '';
+                      }}
+                      className="text-red-500 font-bold ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </form>
             )}
           </div>
         </div>
       )}
 
-      {/* Modal: Registrar Nueva Práctica (Completa) */}
       {showNewPracticeModal && (
         <div className="fixed inset-0 !m-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5">
@@ -960,9 +972,13 @@ export default function DashboardPage() {
                 ✕
               </button>
             </div>
-
             <form onSubmit={handleCreatePractice} className="space-y-4">
-              {/* Selector de estudiante para Admin/Docente */}
+              {feedbackMsg?.type === 'error' && (
+                <div className="p-3 bg-red-50 text-red-700 text-sm font-bold rounded-xl border border-red-200">
+                  {feedbackMsg.text}
+                </div>
+              )}
+
               {(user.role === 'ADMIN' || user.role === 'TEACHER') && (
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">
@@ -986,7 +1002,6 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {/* Datos de la Práctica */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                   📅 Detalles de la Práctica
@@ -1048,7 +1063,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Datos de la Empresa */}
               <div className="space-y-3 pt-3 border-t border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                   🏢 Datos de la Empresa
@@ -1097,7 +1111,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Datos del Jefe Directo */}
               <div className="space-y-3 pt-3 border-t border-gray-100">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-600">
                   👔 Jefe Directo / Supervisor en la Empresa
@@ -1147,7 +1160,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Modal: Crear Nuevo Usuario (Admin) */}
       {showNewUserModal && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
