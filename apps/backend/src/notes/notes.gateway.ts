@@ -35,5 +35,12 @@ export class NotesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   notifyNoteCreated(practiceId: string, note: any) {
     this.server.to(`practice_${practiceId}`).emit('noteCreated', note);
   }
+  notifyNoteUpdated(practiceId: string, note: any) {
+    this.server.to(`practice_${practiceId}`).emit('noteUpdated', note);
+  }
+
+  notifyNoteDeleted(practiceId: string, noteId: string) {
+    this.server.to(`practice_${practiceId}`).emit('noteDeleted', noteId);
+  }
 
 }

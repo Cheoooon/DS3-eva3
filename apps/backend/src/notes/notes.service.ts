@@ -123,7 +123,7 @@ export class NotesService {
       if (now > limit) throw new ForbiddenException('El tiempo de edición (5 min) ha expirado');
     }
 
-    return this.prisma.note.update({
+    const updatedNote = await this.prisma.note.update({
       where: { id: noteId },
       data: { content },
       include: {
@@ -133,6 +133,8 @@ export class NotesService {
         attachments: true,
       },
     });
+    this.notesGateway.notifyNoteUpdated(updatedNote.practiceId, updatedNote);
+    return updatedNote;
   }
 
   async delete(noteId: string, userId: string, role: Role) {
@@ -147,6 +149,8 @@ export class NotesService {
       const limit = new Date(note.createdAt.getTime() + 5 * 60 * 1000);
       if (now > limit) throw new ForbiddenException('El tiempo de eliminación (5 min) ha expirado');
     }
-    return this.prisma.note.delete({ where: { id: noteId } });
+    const deletedNote = await this.prisma.note.delete({ where: { id: noteId } });
+    this.notesGateway.notifyNoteDeleted(deletedNote.practiceId, noteId);
+    return deletedNote;
   }
 }

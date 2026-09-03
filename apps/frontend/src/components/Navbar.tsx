@@ -3,12 +3,13 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../lib/api';
-
-const roleLabels: Record<Role, { label: string; color: string; bg: string }> = {
+export const roleLabels: Record<Role, { label: string; color: string; bg: string }> = {
   ADMIN: { label: 'Administrador', color: 'text-purple-700', bg: 'bg-purple-100 border-purple-300' },
   TEACHER: { label: 'Docente Guía', color: 'text-blue-700', bg: 'bg-blue-100 border-blue-300' },
   STUDENT: { label: 'Estudiante', color: 'text-emerald-700', bg: 'bg-emerald-100 border-emerald-300' },
 };
+
+
 
 export function Navbar() {
   const { user, logout } = useAuth();

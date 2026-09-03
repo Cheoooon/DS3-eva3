@@ -1,5 +1,5 @@
 'use client';
-
+import { formatDate, formatForFilter } from '@/lib/date';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   // Filtros de prácticas
   const [filterStatus, setFilterStatus] = useState<PracticeStatus | 'ALL' | 'UNASSIGNED'>('ALL');
   const [filterDate, setFilterDate] = useState('');
+  const [filterStudent, setFilterStudent] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -38,10 +39,15 @@ export default function DashboardPage() {
 
     let matchDate = true;
     if (filterDate) {
-      matchDate = p.createdAt?.startsWith(filterDate) || false;
+      matchDate = formatForFilter(p.createdAt) === filterDate;
+    }
+    let matchStudent = true;
+    if (filterStudent) {
+      const studentName = `${p.student?.studentProfile?.firstName || ''} ${p.student?.studentProfile?.lastName || ''}`.toLowerCase();
+      matchStudent = studentName.includes(filterStudent.toLowerCase());
     }
 
-    return matchStatus && matchDate;
+    return matchStatus && matchDate && matchStudent;
   });
 
   // New Practice Modal State
@@ -390,8 +396,17 @@ export default function DashboardPage() {
               onChange={(e) => setFilterDate(e.target.value)}
               className="text-sm border-gray-300 rounded-lg px-3 py-1.5"
             />
+            {user?.role !== 'STUDENT' && (
+              <input
+                type="text"
+                value={filterStudent}
+                onChange={(e) => setFilterStudent(e.target.value)}
+                placeholder="Buscar estudiante..."
+                className="text-sm border-gray-300 rounded-lg px-3 py-1.5"
+              />
+            )}
             <button
-              onClick={() => { setFilterStatus('ALL'); setFilterDate(''); }}
+              onClick={() => { setFilterStatus('ALL'); setFilterDate(''); setFilterStudent(''); }}
               className="text-xs text-indigo-600 font-bold"
             >
               Limpiar filtros
@@ -448,7 +463,7 @@ export default function DashboardPage() {
                           {isFinished ? 'FINALIZADA' : 'EN PROGRESO'}
                         </span>
                         <span className="text-xs text-gray-400 font-mono">
-                          {new Date(practice.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })}
+                          {formatDate(practice.createdAt)}
                         </span>
                       </div>
 
@@ -466,8 +481,8 @@ export default function DashboardPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-500 font-medium">Período:</span>
                           <span className="font-semibold text-gray-700">
-                            {practice.startDate ? new Date(practice.startDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'} a{' '}
-                            {practice.endDate ? new Date(practice.endDate).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' }) : '—'}
+                          {formatDate(practice.startDate)} a{' '}
+                          {formatDate(practice.endDate)}
                           </span>
                         </div>
                       </div>
@@ -601,7 +616,7 @@ export default function DashboardPage() {
                       </td>
                       <td className="px-6 py-4 text-xs text-gray-500">{detail}</td>
                       <td className="px-6 py-4 text-xs text-gray-400 font-mono">
-                        {new Date(u.createdAt).toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' })}
+                        {formatDate(u.createdAt)}
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

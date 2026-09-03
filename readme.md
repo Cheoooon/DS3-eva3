@@ -20,6 +20,12 @@ Este proyecto nace con la intención de resolver esta problemática mediante una
    - Genera **notas de sistema automáticas** ante cambios críticos (modificación de datos, cambios de estado) para mantener un historial transparente e inalterable.
    - Aplica una regla de ventana de tiempo (**temporizador de 5 minutos**) para la edición o eliminación de notas personales, asegurando la integridad de los registros.
 
+- **JWT (Autenticación):** Implementamos JSON Web Tokens para una autenticación stateless segura. Los tokens son emitidos tras el login exitoso y utilizados por el frontend en las cabeceras `Authorization` para acceder a las rutas protegidas del backend.
+
+- **WebSockets:** Utilizamos comunicación bidireccional en tiempo real para la sección de bitácoras (notas), permitiendo una experiencia interactiva tipo "chat" entre los usuarios involucrados en una práctica.
+
+
+
 ---
 
 ## 🛠️ Stack Tecnológico
@@ -31,10 +37,16 @@ La aplicación está construida sobre una arquitectura modular de alto rendimien
 * **ORM:** [Prisma ORM](https://www.prisma.io/)
 * **Frontend:** [Next.js](https://nextjs.org/) (App Router + React + TypeScript)
 * **Diseño y Componentes:** [Tailwind CSS](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
-* **Editor de Texto Enriquecido:** [TipTap](https://tiptap.dev/)
 
 ---
 
+
+## 🏗️ Justificación Tecnológica
+
+- **NestJS (Backend):** Arquitectura modular y fuertemente tipada que facilita el mantenimiento de sistemas complejos mediante inyección de dependencias, ideal para aplicaciones escalables.
+- **Next.js (Frontend):** Optimiza la experiencia de usuario y el SEO mediante renderizado híbrido (SSR/SSG), integrándose perfectamente con React para un desarrollo fluido.
+- **Prisma (ORM):** Proporciona un esquema intuitivo y seguridad de tipos completa (end-to-end), eliminando ambigüedades en las consultas y acelerando el desarrollo.
+- **PostgreSQL (Base de Datos):** Garantiza la integridad absoluta de los datos (ACID) y la robustez necesaria para gestionar reglas de negocio estrictas y auditorías.
 ## 🚀 Cómo iniciar el proyecto
 
 Antes de iniciar, configura tus credenciales basadas en el ejemplo:

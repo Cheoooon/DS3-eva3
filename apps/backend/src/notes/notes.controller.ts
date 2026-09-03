@@ -59,7 +59,7 @@ export class NotesController {
       false,
       file
         ? {
-            fileName: file.originalname,
+            fileName: Buffer.from(file.originalname, 'latin1').toString('utf8'),
             fileUrl: `/uploads/${file.filename}`,
             fileType: file.mimetype,
           }

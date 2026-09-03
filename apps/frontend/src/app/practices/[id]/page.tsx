@@ -1,4 +1,5 @@
 'use client';
+import { roleLabels } from '@/components/Navbar';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -54,6 +55,13 @@ export default function PracticeDetailPage() {
   const [newNoteContent, setNewNoteContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submittingNote, setSubmittingNote] = useState(false);
+  const [now, setNow] = useState(new Date().getTime());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date().getTime()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Función auxiliar para desplazar suavemente al final
@@ -139,6 +147,25 @@ export default function PracticeDetailPage() {
       } else {
         setUnreadCount((prev) => prev + 1);
       }
+    });
+    socket.on('noteUpdated', (updatedNote) => {
+      setPractice((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          notes: (prev.notes || []).map((n) => (n.id === updatedNote.id ? updatedNote : n)),
+        };
+      });
+    });
+
+    socket.on('noteDeleted', (noteId) => {
+      setPractice((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          notes: (prev.notes || []).filter((n) => n.id !== noteId),
+        };
+      });
     });
 
     return () => {
@@ -842,10 +869,16 @@ export default function PracticeDetailPage() {
                         : note.author.email
                       : 'Sistema';
 
-                    const isWithinTimeLimit = (createdAt: string) => {
-                      const diffMinutes = (new Date().getTime() - new Date(createdAt).getTime()) / 60000;
-                      return diffMinutes < 5;
+                    const getRemainingMinutes = (createdAt: string) => {
+                      const diffMs = now - new Date(createdAt).getTime();
+                      const remainingMs = 5 * 60000 - diffMs;
+                      return Math.max(0, Math.ceil(remainingMs / 1000));
                     };
+
+                    const isWithinTimeLimit = (createdAt: string) => {
+                      return (now - new Date(createdAt).getTime()) < 5 * 60000;
+                    };
+
 
                     const canEditOrDelete =
                       user?.role === 'ADMIN' || (note.authorId === user?.id && isWithinTimeLimit(note.createdAt));
@@ -864,15 +897,11 @@ export default function PracticeDetailPage() {
                             <span className="text-xs font-bold text-gray-900">{authorName}</span>
                             {note.author && (
                               <span
-                                className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${
-                                  note.author.role === 'ADMIN'
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : note.author.role === 'TEACHER'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-emerald-100 text-emerald-700'
-                                }`}
+                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  roleLabels[note.author.role]?.bg || 'bg-gray-100'
+                                } ${roleLabels[note.author.role]?.color || 'text-gray-700'}`}
                               >
-                                {note.author.role}
+                                {roleLabels[note.author.role]?.label || note.author.role}
                               </span>
                             )}
                           </div>
@@ -880,6 +909,14 @@ export default function PracticeDetailPage() {
                             <span className="text-[11px] text-gray-400 font-mono">
                               {new Date(note.createdAt).toLocaleString()}
                             </span>
+                            {note.authorId === user?.id && user?.role !== 'ADMIN' && isWithinTimeLimit(note.createdAt) && !note.isSystem && (
+                              <span
+                                title="Puedes editar o eliminar tu mensaje durante los primeros 5 minutos tras su publicación."
+                                className="text-[10px] text-gray-500 mr-2 flex items-center"
+                              >
+                                ⏰ {Math.floor(getRemainingMinutes(note.createdAt) / 60)}:{(getRemainingMinutes(note.createdAt) % 60).toString().padStart(2, '0')}
+                              </span>
+                            )}
                             {canEditOrDelete && !note.isSystem && (
                               <>
                                 {editingNoteId === note.id ? (

@@ -65,8 +65,8 @@ export class PracticesService {
       data: {
         title: data.title,
         description: data.description,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        startDate: data.startDate ? this.parseLocalDate(data.startDate) : undefined,
+        endDate: data.endDate ? this.parseLocalDate(data.endDate) : undefined,
         activitiesDescription: data.activitiesDescription,
         companyName: data.companyName,
         companyAddress: data.companyAddress,
@@ -163,8 +163,8 @@ export class PracticesService {
       data: {
         title: data.title,
         description: data.description,
-        startDate: data.startDate ? new Date(data.startDate) : undefined,
-        endDate: data.endDate ? new Date(data.endDate) : undefined,
+        startDate: data.startDate ? this.parseLocalDate(data.startDate) : undefined,
+        endDate: data.endDate ? this.parseLocalDate(data.endDate) : undefined,
         activitiesDescription: data.activitiesDescription,
         companyName: data.companyName,
         companyAddress: data.companyAddress,
@@ -211,4 +211,10 @@ export class PracticesService {
     this.eventEmitter.emit('practice.statusChanged', { practiceId: id, status });
     return practice;
   }
+  private parseLocalDate(dateInput: string | Date): Date {
+    if (dateInput instanceof Date) return dateInput;
+    const [y, m, d] = dateInput.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
 }
+
