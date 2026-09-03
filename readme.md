@@ -48,6 +48,13 @@ La aplicación está construida sobre una arquitectura modular de alto rendimien
 - **Prisma (ORM):** Proporciona un esquema intuitivo y seguridad de tipos completa (end-to-end), eliminando ambigüedades en las consultas y acelerando el desarrollo.
 - **PostgreSQL (Base de Datos):** Garantiza la integridad absoluta de los datos (ACID) y la robustez necesaria para gestionar reglas de negocio estrictas y auditorías.
 
+## 📋 Requisitos Previos
+
+Antes de levantar el proyecto, asegúrate de seguir estos pasos de configuración en la raíz:
+
+1. **Instalar dependencias:** Ejecuta `pnpm install` para instalar todas las dependencias del monorepo (`frontend` y `backend`).
+2. **Generar cliente de Prisma:** Ejecuta `pnpm prisma generate` para generar el cliente necesario para la comunicación con la base de datos.
+
 ## 🚀 Cómo iniciar el proyecto
 
 Antes de iniciar, configura tus credenciales basadas en el ejemplo:
