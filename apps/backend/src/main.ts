@@ -16,6 +16,6 @@ async function bootstrap() {
   }
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
 
-  await app.listen(3000);
+  await app.listen(process.env.BACKEND_PORT || 3000);
 }
 bootstrap();

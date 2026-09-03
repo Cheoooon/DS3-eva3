@@ -35,16 +35,62 @@ La aplicación está construida sobre una arquitectura modular de alto rendimien
 
 ---
 
+## 🚀 Cómo iniciar el proyecto
+
+Antes de iniciar, configura tus credenciales basadas en el ejemplo:
+
+```bash
+cp .env.example .env
+# Edita el archivo .env con tus valores reales
+```
+
+Luego, inicia los servicios con el script centralizado:
+
+```bash
+# Iniciar en modo desarrollo (Hot reload + Docker)
+./start.sh dev
+
+# Iniciar en modo producción (Build + Start)
+./start.sh prod
+```
+
+*Requisito: Tener instalado Docker, Node.js y pnpm.*
+
+
 ## 📁 Estructura del Proyecto
 
 ```text
 .
-├── docs/                      # Arnés agéntico y documentación del sistema
-│   ├── brief.md               # Contexto general y restricciones
-│   ├── requirements.md        # Reglas de negocio e historias de usuario
-│   ├── database.md            # Esquema de Prisma ORM
-│   ├── agents.md              # Definición de roles de IA para desarrollo
-│   └── execution_plan.md      # Checklist y roadmap de implementación
+├── apps/                      # Código fuente de Frontend y Backend
 ├── prisma/                    # Esquema y migraciones de la base de datos
-├── apps/ (o src/)             # Código fuente de Frontend y Backend
-└── README.md                  # Visión general del proyecto
+├── .env                       # Configuración unificada de variables
+├── .env.example               # Plantilla de variables de entorno
+├── docker-compose.yml         # Definición de servicios (PostgreSQL)
+├── start.sh                   # Script centralizado de inicio (dev/prod)
+├── pnpm-workspace.yaml        # Configuración del monorepo pnpm
+├── package.json               # Dependencias raíz y scripts globales
+├── README.md                  # Visión general y guía de inicio
+└── *.md                       # Documentación adicional y contexto agéntico
+```
+## ⚙️ Configuración de Entorno (.env)
+
+El proyecto utiliza una configuración **unificada** en la raíz del proyecto para facilitar la gestión:
+
+- **`./.env`**: Contiene todas las variables de entorno para el backend, frontend y la base de datos.
+
+> **Nota:** Si ejecutas las aplicaciones localmente sin `docker-compose`, asegúrate de cargar las variables de este archivo manualmente.
+
+## 🐘 ¿Por qué PostgreSQL?
+
+Utilizamos **PostgreSQL** por estas razones:
+
+1. **ACID Compliance:** Garantiza la integridad total de los datos, esencial para auditorías y reglas de negocio estrictas.
+2. **Relational Model:** La lógica de asignación y las restricciones entre entidades del sistema se mapean naturalmente a un esquema SQL relacional.
+3. **Robustez:** Su madurez garantiza un rendimiento fiable para el mantenimiento de registros inalterables y trazables.
+
+## 💡 Sobre la estructura
+
+Este proyecto utiliza un **monorepo con `pnpm`**.
+
+- **`node_modules` (Raíz):** Contiene todas las dependencias compartidas para `backend` y `frontend`. **No mover**: hacerlo rompería el `pnpm-workspace` y duplicaría innecesariamente el espacio en disco.
+- **`prisma/` (Raíz):** Mantenemos el esquema aquí para que sea fácilmente accesible por herramientas de desarrollo y agentes agénticos, evitando rutas relativas complejas dentro de las apps.
