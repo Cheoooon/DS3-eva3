@@ -47,6 +47,7 @@ La aplicación está construida sobre una arquitectura modular de alto rendimien
 - **Next.js (Frontend):** Optimiza la experiencia de usuario y el SEO mediante renderizado híbrido (SSR/SSG), integrándose perfectamente con React para un desarrollo fluido.
 - **Prisma (ORM):** Proporciona un esquema intuitivo y seguridad de tipos completa (end-to-end), eliminando ambigüedades en las consultas y acelerando el desarrollo.
 - **PostgreSQL (Base de Datos):** Garantiza la integridad absoluta de los datos (ACID) y la robustez necesaria para gestionar reglas de negocio estrictas y auditorías.
+
 ## 🚀 Cómo iniciar el proyecto
 
 Antes de iniciar, configura tus credenciales basadas en el ejemplo:
@@ -84,6 +85,15 @@ Luego, inicia los servicios con el script centralizado:
 ├── README.md                  # Visión general y guía de inicio
 └── *.md                       # Documentación adicional y contexto agéntico
 ```
+
+### 💡 Sobre la estructura
+
+Este proyecto utiliza un **monorepo con `pnpm`**.
+
+- **`node_modules` (Raíz):** Contiene todas las dependencias compartidas para `backend` y `frontend`. **No mover**: hacerlo rompería el `pnpm-workspace` y duplicaría innecesariamente el espacio en disco.
+- **`prisma/` (Raíz):** Mantenemos el esquema aquí para que sea fácilmente accesible por herramientas de desarrollo y agentes agénticos, evitando rutas relativas complejas dentro de las apps.
+
+
 ## ⚙️ Configuración de Entorno (.env)
 
 El proyecto utiliza una configuración **unificada** en la raíz del proyecto para facilitar la gestión:
@@ -100,9 +110,3 @@ Utilizamos **PostgreSQL** por estas razones:
 2. **Relational Model:** La lógica de asignación y las restricciones entre entidades del sistema se mapean naturalmente a un esquema SQL relacional.
 3. **Robustez:** Su madurez garantiza un rendimiento fiable para el mantenimiento de registros inalterables y trazables.
 
-## 💡 Sobre la estructura
-
-Este proyecto utiliza un **monorepo con `pnpm`**.
-
-- **`node_modules` (Raíz):** Contiene todas las dependencias compartidas para `backend` y `frontend`. **No mover**: hacerlo rompería el `pnpm-workspace` y duplicaría innecesariamente el espacio en disco.
-- **`prisma/` (Raíz):** Mantenemos el esquema aquí para que sea fácilmente accesible por herramientas de desarrollo y agentes agénticos, evitando rutas relativas complejas dentro de las apps.
