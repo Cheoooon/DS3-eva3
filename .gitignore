@@ -9,3 +9,4 @@ tsconfig.tsbuildinfo
 .vscode/
 .idea/
 uploads/
+postgres_data/

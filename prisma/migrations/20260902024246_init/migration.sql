@@ -24,6 +24,7 @@ CREATE TABLE "StudentProfile" (
     "lastName" TEXT NOT NULL,
     "enrollmentCode" TEXT NOT NULL,
     "career" TEXT NOT NULL,
+    "phone" TEXT,
 
     CONSTRAINT "StudentProfile_pkey" PRIMARY KEY ("id")
 );
