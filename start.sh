@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 set -e
 
+if [ ! -f .env ]; then
+  echo "❌ Error: El archivo .env no existe. Crea uno basado en .env.example"
+  exit 1
+fi
+
 # Cargar variables de entorno
 set -a
 source .env
 set +a
+
+# Asegurar que los procesos secundarios mueran al presionar Ctrl+C
+trap 'kill 0' EXIT
 
 start_dev() {
   echo "🚀 Iniciando modo DESARROLLO..."
@@ -17,9 +25,8 @@ start_dev() {
   done
   echo "✅ Base de datos lista."
 
-  echo "📦 Aplicando migraciones de Prisma..."
-  pnpm --filter backend run prisma:migrate > /dev/null 2>&1
-  pnpm --filter backend run prisma:generate > /dev/null 2>&1
+  echo "📦 Verificando y aplicando migraciones de Prisma..."
+  pnpm --filter backend run prisma:migrate:dev
 
   echo "🌐 Iniciando Backend ($BACKEND_PORT) y Frontend ($FRONTEND_PORT)..."
 
@@ -27,7 +34,7 @@ start_dev() {
   pnpm --filter backend run start:dev &
 
   export PORT=${FRONTEND_PORT}
-  pnpm --filter frontend run dev
+  pnpm --filter frontend run dev &
   
   wait
 }
@@ -43,7 +50,12 @@ start_prod() {
   done
   echo "✅ Base de datos lista."
 
-  pnpm --filter backend run prisma:migrate
+  echo "📦 Aplicando migraciones pendientes (Producción)..."
+
+  pnpm --filter backend run prisma:deploy
+  pnpm --filter backend run prisma:generate
+
+  echo "🏗️ Construyendo aplicaciones..."
   pnpm --filter backend run build
   pnpm --filter frontend run build
   
@@ -51,7 +63,7 @@ start_prod() {
   pnpm --filter backend run start &
 
   export PORT=${FRONTEND_PORT}
-  pnpm --filter frontend run start
+  pnpm --filter frontend run start &
   
   wait
 }

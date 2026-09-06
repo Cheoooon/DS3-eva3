@@ -24,6 +24,7 @@ CREATE TABLE "StudentProfile" (
     "lastName" TEXT NOT NULL,
     "enrollmentCode" TEXT NOT NULL,
     "career" TEXT NOT NULL,
+    "phone" TEXT,
 
     CONSTRAINT "StudentProfile_pkey" PRIMARY KEY ("id")
 );
@@ -45,6 +46,15 @@ CREATE TABLE "Practice" (
     "status" "PracticeStatus" NOT NULL DEFAULT 'IN_PROGRESS',
     "title" TEXT NOT NULL,
     "description" TEXT,
+    "startDate" TIMESTAMP(3),
+    "endDate" TIMESTAMP(3),
+    "activitiesDescription" TEXT,
+    "companyName" TEXT,
+    "companyAddress" TEXT,
+    "companyPhone" TEXT,
+    "companyDetails" TEXT,
+    "supervisorName" TEXT,
+    "supervisorContact" TEXT,
     "studentId" TEXT NOT NULL,
     "teacherId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,

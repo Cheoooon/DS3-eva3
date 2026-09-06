@@ -82,7 +82,7 @@ Luego, inicia los servicios con el script centralizado:
 ```text
 .
 ├── apps/                      # Código fuente de Frontend y Backend
-├── prisma/                    # Esquema y migraciones de la base de datos
+├── apps/backend/prisma/       # Esquema y migraciones de la base de datos (Owned by backend)
 ├── .env                       # Configuración unificada de variables
 ├── .env.example               # Plantilla de variables de entorno
 ├── docker-compose.yml         # Definición de servicios (PostgreSQL)
@@ -98,7 +98,7 @@ Luego, inicia los servicios con el script centralizado:
 Este proyecto utiliza un **monorepo con `pnpm`**.
 
 - **`node_modules` (Raíz):** Contiene todas las dependencias compartidas para `backend` y `frontend`. **No mover**: hacerlo rompería el `pnpm-workspace` y duplicaría innecesariamente el espacio en disco.
-- **`prisma/` (Raíz):** Mantenemos el esquema aquí para que sea fácilmente accesible por herramientas de desarrollo y agentes agénticos, evitando rutas relativas complejas dentro de las apps.
+- **`apps/backend/prisma/`**: El esquema y las migraciones ahora residen dentro de la aplicación backend, garantizando una mejor encapsulación. El backend es responsable de gestionar sus propias migraciones y operaciones de base de datos a través de scripts delegados.
 
 
 ## ⚙️ Configuración de Entorno (.env)
