@@ -28,6 +28,10 @@ start_dev() {
   echo "📦 Verificando y aplicando migraciones de Prisma..."
   pnpm --filter backend run prisma:migrate:dev
 
+  if [ "$SHOULD_SEED" = true ]; then
+    seed
+  fi
+
   echo "🌐 Iniciando Backend ($BACKEND_PORT) y Frontend ($FRONTEND_PORT)..."
 
   export PORT=${BACKEND_PORT}
@@ -74,18 +78,25 @@ seed() {
   echo "✅ Seed completado."
 }
 
-case "$1" in
+# Parsear argumentos
+COMMAND="$1"
+shift
+SHOULD_SEED=false
+for arg in "$@"; do
+  if [[ "$arg" == "--seed" ]]; then
+    SHOULD_SEED=true
+  fi
+done
+
+case "$COMMAND" in
   dev)
     start_dev
     ;;
   prod)
     start_prod
     ;;
-  seed)
-    seed
-    ;;
   *)
-    echo "Uso: $0 {dev|prod|seed}"
+    echo "Uso: $0 {dev|prod} [--seed]"
     exit 1
     ;;
 esac

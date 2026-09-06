@@ -52,10 +52,11 @@ La aplicación está construida sobre una arquitectura modular de alto rendimien
 
 Antes de levantar el proyecto, asegúrate de seguir estos pasos de configuración en la raíz:
 
-1. **Instalar dependencias:** Ejecuta `pnpm install` para instalar todas las dependencias del monorepo (`frontend` y `backend`).
-2. **Generar cliente de Prisma:** Ejecuta `pnpm prisma generate` para generar el cliente necesario para la comunicación con la base de datos.
+*Requisito: Tener instalado Docker, Node.js y pnpm.*
 
-## 🚀 Cómo iniciar el proyecto
+**Instalar dependencias:** Ejecuta `pnpm install` para instalar todas las dependencias del monorepo (`frontend` y `backend`).
+
+## 🚀 Cómo iniciar el proyecto (con script)
 
 Antes de iniciar, configura tus credenciales basadas en el ejemplo:
 
@@ -68,13 +69,18 @@ Luego, inicia los servicios con el script centralizado:
 
 ```bash
 # Iniciar en modo desarrollo (Hot reload + Docker)
-./start.sh dev
+pnpm start dev 
+
+# Iniciar en modo desarrollo con seed de datos
+pnpm start dev --seed
 
 # Iniciar en modo producción (Build + Start)
-./start.sh prod
+pnpm start prod
 ```
 
-*Requisito: Tener instalado Docker, Node.js y pnpm.*
+*Nota: Puedes explorar todos los scripts adicionales disponibles y sus configuraciones en el archivo `package.json` de la raíz y dentro de cada aplicación (`apps/backend/package.json`, `apps/frontend/package.json`).*
+
+
 
 
 ## 📁 Estructura del Proyecto
