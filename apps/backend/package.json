@@ -2,11 +2,11 @@
   "name": "backend",
   "version": "1.0.0",
   "prisma": {
-    "seed": "npx ts-node prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "scripts": {
     "build": "nest build",
-    "start": "node dist/main",
+    "start": "node dist/src/main",
     "start:dev": "nest start --watch",
     "dev": "nest start --watch",
     "prisma:generate": "prisma generate",

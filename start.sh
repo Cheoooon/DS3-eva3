@@ -56,7 +56,7 @@ start_prod() {
 
   echo "📦 Aplicando migraciones pendientes (Producción)..."
 
-  pnpm --filter backend run prisma:deploy
+  pnpm --filter backend run prisma:migrate
   pnpm --filter backend run prisma:generate
 
   echo "🏗️ Construyendo aplicaciones..."
