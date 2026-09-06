@@ -70,7 +70,7 @@ start_prod() {
 
 seed() {
   echo "🌱 Poblando base de datos con datos de prueba..."
-  docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" < prisma/seed.sql
+  pnpm --filter backend run prisma:seed
   echo "✅ Seed completado."
 }
 

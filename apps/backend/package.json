@@ -1,6 +1,9 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "prisma": {
+    "seed": "npx ts-node prisma/seed.ts"
+  },
   "scripts": {
     "build": "nest build",
     "start": "node dist/main",
@@ -11,7 +14,7 @@
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "psql -U \"$POSTGRES_USER\" -d \"$POSTGRES_DB\" < prisma/seed.sql"
+    "prisma:seed": "prisma db seed"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
